@@ -1,0 +1,610 @@
+
+#########################################################
+#       This program was written by Matt Zahara         #
+#       to run an rpg simulation of 100 battles by      #
+#       the students of LSSUs CS415 class of 2017       #
+#########################################################
+
+.init _main                     # denotes where to begin executing
+.segment 32768
+
+_main:
+#set up arrays needed
+call arraysinit
+#basics
+lda r5,  $50    #const - for max health comparisons
+lda r7,  $0     #counter
+lda r8,  $100   #end con
+lda r9,  $1     #const
+lda r18, $8     #size of a names[] item
+lda r27, $-1    #const - for mana calc
+lda r29, $0     #total   mana spent by Schemm
+
+#reference stuff
+#r11 -> student affected                (destination)
+#r12 -> person/thing affecting them     (source)
+#r13 -> attack or heal                  (operation)
+#r14 -> amount                          (amount)
+
+
+top:
+beq r7, r8, end
+
+call _getPacket
+#parse data
+mov r11, r2             #hold dest
+add r2, r2, $20         #move to source
+mov r12, r2             #hold source
+add r2, r2, $20         #move to op
+ldb r13, $0(r2)         #hold op
+add r2, r2, $1          #move to amount
+ldb r14, $0(r2)         #hold amount
+
+#print round heading
+lda r50, $newl  #newl
+call _printstr
+lda r50, $sep   ###########
+call _printstr
+lda r50, $newl  #newl
+call _printstr
+lda r50, $round #round:
+call _printstr
+mov r59, r7     #loop counter
+call _printint
+lda r50, $newl  #newl
+call _printstr
+lda r50, $sep   ########
+call _printstr
+lda r50, $newl  #newl
+call _printstr
+
+
+
+#TURN SUMMARY
+beq r13, r9, monsterAttack
+
+#heal summary
+#source
+mov r50, r12
+call _printstr
+#healed
+lda r50, $healed
+call _printstr
+#dest
+mov r50, r11
+call _printstr
+#for
+lda r50, $forWord
+call _printstr
+#amount
+mov r59, r14
+call _printint
+#health
+#       lda r50, $health
+#       call _printstr
+#newl
+lda r50, $newl
+call _printstr
+
+jmp postSumm
+
+monsterAttack:
+#monster attack summary
+#source
+mov r50, r12
+call _printstr
+#attacked
+lda r50, $attacked
+call _printstr
+#dest
+mov r50, r11
+call _printstr
+#for
+lda r50, $forWord
+call _printstr
+#amount
+mov r59, r14
+call _printint
+#damage
+#       lda r50, $damage
+#       call _printstr
+#newl
+lda r50, $newl
+call _printstr
+
+postSumm:
+
+mov r16, r11            #input for getDest()
+
+call getDest
+
+#r3 -> addr of name matched
+#r4 -> index the match was found in
+
+#handle all necessary calc
+beq r13, r0, heal
+#monster attack
+#get dest health
+add r16, r4, r15        #r16 holds destHealth addr
+ldb r32, $0(r16)        #r32 holds destHealth val
+bne r32, r0, validAtt   #if destHealth != 0 -> validAtt
+#here means destHealth == 0 -> invalid attack
+#message #1
+lda r50, $msg1a
+call _printstr
+#print dest name
+ldw r3, $0(r3)
+mov r50, r3
+call _printstr
+#second part of message 1
+lda r50, $msg1b
+call _printstr
+#newl
+lda r50, $newl
+call _printstr
+
+jmp afterBody
+
+validAtt:
+sub r32, r32, r14       #destHealth -= amount
+
+bne r32, r0, notDead
+#here means destHealth == 0 -> dest has died!
+#message #4 if(health == 0)
+#print dest name
+ldw r3, $0(r3)
+mov r50, r3
+call _printstr
+#print message 4a
+lda r50, $msg4a
+call _printstr
+#newl
+lda r50, $newl
+call _printstr
+
+stb r32, $0(r16)        #update healths[]
+jmp afterBody
+notDead:
+blt r32, r0, infInt
+#here means destHealth > 0 -> dest survived the attack
+#message #4 if(health > 0)
+#print dest name
+ldw r3, $0(r3)
+mov r50, r3
+call _printstr
+#part 1 of message 4b
+lda r50, $msg4b1
+call _printstr
+#print destHeath
+mov r59, r32
+call _printint
+lda r50, $msg4b2
+call _printstr
+#newl
+lda r50, $newl
+call _printstr
+
+stb r32, $0(r16)        #update healths[]
+jmp afterBody
+
+infInt:
+#here means destHealth went below 0 -> Infernal Intervention!
+mul r28, r32, r27       #r28 = destHealth * -1
+add r28, r28, $1        #r28++
+add r29, r29, r28       #add to total mana spent
+
+lda r32, $1             #destHealth = 1
+stb r32, $0(r16)        #update healths[]
+#message #4 if(health < 0)
+#part 1 of message 4c
+lda r50, $msg4c1
+call _printstr
+#print dest name
+ldw r3, $0(r3)
+mov r50, r3
+call _printstr
+#part 2 of message 4c
+lda r50, $msg4c2
+call _printstr
+#print current mana used
+mov r59, r28
+call _printint
+#part 3 of message 4c
+lda r50, $msg4c3
+call _printstr
+#newl
+lda r50, $newl
+call _printstr
+
+jmp afterBody
+
+heal:
+#heal spell
+mov r30, r3     #hold dest addr of name
+mov r31, r4     #hold dest val  of index
+mov r16, r12    #find info for heal spell caster
+
+call getDest
+#r3  is now addr for source name
+#r4  is now val  for source index
+#r30 is now addr for dest   name
+#r31 is now val  for dext   index
+#get source health
+add r16, r4, r15                #r16 = sourceHealth addr
+ldb r16, $0(r16)                #r16 = sourceHealth val
+beq r16, r0, invalidHeal        #if sourceHealth == 0 -> invalidHeal
+#here means heal spell will occur
+#get dest health
+add r16, r31, r15       #r16 holds destHealth addr
+ldb r32, $0(r16)        #r32 holds destHealth val
+
+add r32, r32, r14       #apply heal
+ble r32, r5, healDone   #if destHealth is legal, we are done
+#here means destHealth exceeded max allowed health
+lda r32, $50    #set destHealth equal to legal max
+
+healDone:
+stb r32, $0(r16)        #store new value of destHealth
+#message #2
+#print dest name
+ldw r30, $0(r30)
+mov r50, r30
+call _printstr
+#print message 2
+lda r50, $msg2
+call _printstr
+#print destHealth
+mov r59, r32
+call _printint
+#newl
+lda r50, $newl
+call _printstr
+
+jmp afterBody
+
+invalidHeal:
+#message #3
+lda r50, $msg3a
+call _printstr
+#print source name
+ldw r3, $0(r3)
+mov r50, r3
+call _printstr
+#second part of message 3
+lda r50, $msg3b
+call _printstr
+#newl
+lda r50, $newl
+call _printstr
+
+
+afterBody:
+
+
+
+add r7, r7, r9  #counter++
+jmp top
+
+
+end:
+lda r50, $sep
+call _printstr
+lda r50, $sep
+call _printstr
+lda r50, $sep
+call _printstr
+lda r50, $newl
+call _printstr
+
+call endSumm
+
+
+lda r50, $newl
+call _printstr
+
+exit
+
+newl:   .string "\n"
+round:  .string "round: "
+sep:    .string "##########"
+dash:   .string " - "
+alive:  .string "alive"
+dead:   .string "dead"
+endSummHead:    .string "\nname - health - status\n----------------------"
+
+manaSpent1:     .string "\nDr. Schemm spent a total of "
+#<totalMana>
+manaSpent2:     .string " mana on this battle royale"
+
+msg1a:  .string "Nothing happened, "
+#<dest>
+msg1b:  .string " is already dead."
+
+#<dest>
+msg2:   .string " health is now "
+#<destHealth>
+
+msg3a:  .string "Nothing happened, "
+#<source>
+msg3b:  .string " is dead."
+
+#<dest>
+msg4a:  .string " died!"
+
+#<dest>
+msg4b1: .string " dropped to "
+#<health>
+msg4b2: .string " health."
+
+msg4c1: .string "Infernal Intervention! Dr. Schemm restored "
+#<dest>
+msg4c2: .string " to 1 health at the cost of "
+#<mana>
+msg4c3: .string " mana."
+
+#summary strings - health and damage are printing all 2s
+attacked:               .string " attacked "
+healed:                 .string " healed "
+forWord:                .string " for "
+health:                 .string " health."
+damage:                 .string " damage."
+
+
+
+
+#################################################
+#                                               #
+#       getDest function expects a string       #
+#       to be in r16, uses that string to       #
+#       determine which index of health[] main  #
+#       should use for its calculations.        #
+#       Calls byteCmp on r16 and each string    #
+#       in names[] to determine the index.      #
+#       Returns matched name in r3 and its      #
+#       index in r4.                            #
+#                                               #
+#################################################
+getDest:
+
+lda r19, $0     #set current index to 0
+lda r26, $0     #set current byteCmp return to 0 - will be 1 when a name is matched
+lda r21, $18
+#       ldw r20, $0(r17)        #first name in names[]
+
+#r17 -> names[]
+#r18 -> size of one item in names[]
+
+
+getDestTop:
+beq r19, r21, getDestEnd
+
+#r22 and r23 are changed in byteCmp, so they must be 'reset'
+mov r22, r16    #make string 1 of byteCmp() the name given by main
+#r20 = offset
+mul r20, r19, r18
+#r20 = loc of curr name
+add r20, r20, r17
+
+ldw r23, $0(r20)        #loading string 2 of byteCmp() with the next name
+
+call byteCmp
+
+beq r9, r26, getDestEnd #if byteCmp() returned true, dont loop again
+
+add r19, r19, r9        #currentIndex++
+add r20, r20, r18       #make string 2 for byteCmp() the next name in names[]
+
+jmp getDestTop
+
+
+getDestEnd:
+mov r3, r20     #put matched name into return reg
+mov r4, r19     #put index found  into return reg
+
+ret
+
+
+
+#################################################
+#                                               #
+#       byteCmp funciton expects 2 strings      #
+#       to be in r22, r23 and traverses both,   #
+#       comparing all bytes while they match.   #
+#       Return 1 for equal strings, 0 otherwise #
+#       in r26.                                 #
+#                                               #
+#################################################
+byteCmp:
+
+byteCmpTop:
+#load addresses of strings
+ldb r24, $0(r22)
+ldb r25, $0(r23)
+
+eq r26, r24, r25        #actual comparison of the two bytes
+
+# 3 conditionals anded together (&&)
+# if any are true, the loop ends
+beq r24, r0, byteCmpEnd         #byte1 == NULL  -> string1 ended
+beq r25, r0, byteCmpEnd         #byte2 == NULL  -> string2 ended
+beq r26, r0, byteCmpEnd         #byte1 != byte2 -> string1 != string2
+
+#increase locations of both strings
+add r22, r22, r9
+add r23, r23, r9
+
+jmp byteCmpTop
+
+byteCmpEnd:
+
+ret
+
+
+#################################################
+#                                               #
+#       endSumm function prints out the health  #
+#       and status (alive/dead) of each         #
+#       student after all rounds of combat      #
+#                                               #
+#################################################
+endSumm:
+
+lda r7, $0      #init loop counter
+lda r8, $18     #init loop end con
+
+lda r50, $endSummHead
+call _printstr
+lda r50, $newl
+call _printstr
+
+endSummTop:
+beq r7, r8, endSummEnd
+
+#r11 -> names[i]   offset / names[i]   loc
+#r12 -> healths[i] offset / healths[i] loc
+
+#print names[i]
+mul r11, r18, r7        #r11 = size of names[] item * counter
+add r11, r11, r17       #r11 = offset + addr of names[]
+ldw r50, $0(r11)        #load addr of names[i]
+call _printstr          #print names[i]
+#print dash
+lda r50, $dash
+call _printstr
+#print healths[i]
+mov r12, r7             #healths[] offset
+add r12, r12, r15       #addr of healths[i]
+ldb r59, $0(r12)
+call _printint
+#print dash
+lda r50, $dash
+call _printstr
+#if(health == 0)
+ldb r12, $0(r12)
+beq r12, r0, otherStatus
+
+lda r50, $alive
+call _printstr
+jmp endSummNewl
+
+otherStatus:#health == 0 -> dead
+lda r50, $dead
+call _printstr
+
+endSummNewl:
+lda r50, $newl
+call _printstr
+
+add r7, r7, $1          #counter++
+
+jmp endSummTop
+
+endSummEnd:
+lda r50, $manaSpent1
+call _printstr
+mov r59, r29
+call _printint
+lda r50, $manaSpent2
+call _printstr
+lda r50, $newl
+call _printstr
+
+ret
+
+
+#################################################
+#                                               #
+#       arrayinit function sets up all          #
+#       arrays and initial values               #
+#                                               #
+#################################################
+arraysinit:
+
+lda r15, $health        #healths[0]
+lda r17, $names         #names[0]
+
+
+#load all names into names[]
+lda r10,$Leah           #load addr of "Leah"
+stw r10, $0(r17)        #store addr of "Leah"
+lda r10,$Joel
+stw r10, $8(r17)
+lda r10,$Renee
+stw r10, $16(r17)
+lda r10,$Ryan
+stw r10, $24(r17)
+lda r10,$Karl
+stw r10, $32(r17)
+lda r10,$Elizabeth
+stw r10, $40(r17)
+lda r10,$Mohamed
+stw r10, $48(r17)
+lda r10,$James
+stw r10, $56(r17)
+lda r10,$Philip
+stw r10, $64(r17)
+lda r10,$Katie
+stw r10, $72(r17)
+lda r10,$Tamara
+stw r10, $80(r17)
+lda r10,$Wei
+stw r10, $88(r17)
+lda r10,$Adam
+stw r10, $96(r17)
+lda r10,$Laura
+stw r10, $104(r17)
+lda r10,$Sean
+stw r10, $112(r17)
+lda r10,$Seth
+stw r10, $120(r17)
+lda r10,$Joshua
+stw r10, $128(r17)
+lda r10,$Matthew
+stw r10, $136(r17)
+
+#load all starting health values
+lda r10, $50
+stb r10, $0(r15)
+stb r10, $1(r15)
+stb r10, $2(r15)
+stb r10, $3(r15)
+stb r10, $4(r15)
+stb r10, $5(r15)
+stb r10, $6(r15)
+stb r10, $7(r15)
+stb r10, $8(r15)
+stb r10, $9(r15)
+stb r10, $10(r15)
+stb r10, $11(r15)
+stb r10, $12(r15)
+stb r10, $13(r15)
+stb r10, $14(r15)
+stb r10, $15(r15)
+stb r10, $16(r15)
+stb r10, $17(r15)
+
+ret
+
+#health array for all students
+healths:        .space 20
+names:          .space 144
+
+Leah:           .string "Leah"
+Joel:           .string "Joel"
+Renee:          .string "Renee"
+Ryan:           .string "Ryan"
+Karl:           .string "Karl"
+Elizabeth:      .string "Elizabeth"
+Mohamed:        .string "Mohamed"
+James:          .string "James"
+Philip:         .string "Philip"
+Katie:          .string "Katie"
+Tamara:         .string "Tamara"
+Wei:            .string "Wei"
+Adam:           .string "Adam"
+Laura:          .string "Laura"
+Sean:           .string "Sean"
+Seth:           .string "Seth"
+Joshua:         .string "Joshua"
+Matthew:        .string "Matthew"
+mgzahara@colossus[~/1718Year/415/rpg]$

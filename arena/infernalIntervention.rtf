@@ -1,0 +1,178 @@
+{\rtf1\ansi\ansicpg1252\cocoartf1504\cocoasubrtf830
+{\fonttbl\f0\fmodern\fcharset0 CourierNewPSMT;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\margl1440\margr1440\vieww21220\viewh13500\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 0  - Leah\
+1  - Joel\
+2  - Renee\
+3  - Ryan\
+4  - Karl\
+5  - Elizabeth\
+6  - Mohamed\
+7  - James\
+8  - Philip\
+9  - Katie\
+10 - Tamara\
+11 - Wei\
+12 - Adam\
+13 - Laura\
+14 - Sean\
+15 - Seth\
+16 - Joshua\
+17 - Matthew\
+\
+\
+Leah\
+Joel\
+Renee\
+Ryan\
+Karl\
+Elizabeth\
+Mohamed\
+James\
+Philip\
+Katie\
+Tamara\
+Wei\
+Adam\
+Laura\
+Sean\
+Seth\
+Joshua\
+Matthew\
+\
+//don\'92t forget to make an array of health in main file\
+//main body -> put this in a loop for 100 times\
+\
+Call _getPacket\
+//parse\
+	r6  -> 1 const\
+	r7  -> counter\
+	r8  -> end con\
+	r9  -> 0 const\
+	r10 -> \'93\\n\'94\
+The following registers are holding addresses, not values\
+	r11 -> student affected                (destination)\
+	r12 -> person/thing affecting them     (source)\
+	r13 -> attack or heal                  (operation)\
+	r14 -> amount\
+\
+Call getDest() on string in r11 -> name in r3, index in r4\
+Registers needed\
+	loc of array\
+	size of one item of array\
+	current name to look for - separate reg from r11 above so I may increment it to pass to byteCmp()\
+	current name to compare  - same as above, for incrementing for byteCmp()\
+	const 0 for comparison against return of byteCmp() -> put this const into r9\
+		change looping of getDest() to compare against the return of byteCmp()\
+			loop until byteCmp() returns a 1\
+	return value of byteCmp()\
+\
+\
+if(r13 == 1)//monster attack\
+\{\
+	if(destHealth == 0)\
+	\{//no attack, dest is already dead\
+		//message #1 -> jump to afterBody\
+	\}\
+\
+	destHealth -= amount\
+	if(destHealth == 0)\
+	\{//they died!\
+		//message #4 if(health == 0) -> jump to afterBody\
+	\}\
+	if(destHealth > 0)\
+	\{//survived\
+		//message #4 if(health > 0) -> jump to afterBody\
+	\}\
+	if(destHealth < 0)\
+	\{//beyond death, Infernal Intervention\
+		mana = (destHealth * -1) + 1\
+		manaSpent += mana\
+		destHealth = 1\
+		//message #4 if(health < 0) -> jump to afterBody\
+	\}\
+\}\
+Else // r13 == 0 -> heal\
+\{\
+	//hold onto dest info\
+	call getDest() on string in r12 //get info for source student\
+	if(sourceHealth > 0)\
+	\{//valid heal spell\
+		destHealth += amount\
+		if(destHealth > 50)\
+		\{//can\'92t go above 50 health\
+			destHealth = 50 \
+		\}\
+		//message #2 -> jump to afterBody\
+	\}\
+	else\
+	\{//invalid heal spell - source student is dead\
+		//message #3 -> jump to afterBody\
+	\}\
+\}\
+afterBody:\
+\
+\
+\
+\
+\
+\
+\
+R2  - \
+X R3  - getDest() returned addr of student name\
+X R4  - getDest() returned val  of student index - to reference the appropriate index in health array\
+X R5  - const 50\
+X R6  - const 0 \
+X R7  - main counter \
+X R8  - main end con - 100\
+X R9  - const 1\
+~ R10 - const \'93\\n\'94\
+X R11 - packet destination\
+X R12 - packet source\
+X R13 - packet operation\
+X R14 - packet amount\
+X R15 - main health array - no item size is needed, use const 1 in r9\
+X R16 - getDest() \'91parameter\'92 from main loop - dest always and source sometimes - also holds health values\
+X R17 - addr of name array start\
+X R18 - const 8 - size of getDest() array item\
+X R19 - current index of getDest name array - for local loop\
+X R20 - getDest() current name to compare main name to\
+X R21 - getDest() local loop end con\
+X R22 - byteCmp() string 1 - will change during byteCmp()\
+X R23 - byteCmp() string 2 - will change during byteCmp() \
+X R24 - byteCmpProp() byte 1\
+X R25 - byteCmpProp() byte 2\
+X R26 - byteCmpProp() return - 1(equal) or 0(not equal) - cannibalized for byteCmp return value\
+X R27 - const -1\
+X R28 - current mana spent by schemm\
+X R29 - total mana spent by schemm\
+X R30 - hold r3 from getDest while getting source info\
+X R31 - hold r4 from getDest while getting source info\
+X R32 - temp\
+~R32+ - all possible messages:\
+\
+1. \'93Nothing happened, <dest> is already dead.\'94\
+2. \'93<dest> health is now <destHealth>.\'94\
+3. \'93Nothing happened, <source> is dead.\'94 \
+4. \
+if(health == 0)\
+	\'93<dest> died!\'94\
+if(health > 0)\
+	\'93<dest> dropped to <health> health.\'94\
+if(health < 0)\
+	\'93Infernal Intervention! Dr. Schemm restored <dest> to <health> health at the cost of <mana> mana.\'94\
+  r12             r11         r14\
+<Source> healed <dest> for <amount> health\
+<Source> attacked <dest> for <amount> damage\
+\
+Supporting strings\
+\'93 attacked \'94\
+\'93 healed \'94\
+\'93 for \'94\
+\'93 health\'94\
+\'93 damage\'94\
+}
