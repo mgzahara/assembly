@@ -1,2 +1,2 @@
 # assembly
-Fictional assembly language used for instruction in my computer architecture course.
+This code relies on another file on my university's server. My code calls a function from that file; finds the index of the student name received from that function; and the index of the second student, if necessary; then applies the appropriate logical operations detailed in the assignment. The assignment also required a printout of all students, their health, and their status (alive or dead), and Schemm's mana spent upon termination of the main loop. 
