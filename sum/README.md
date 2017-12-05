@@ -1,2 +1,2 @@
 # assembly
-Fictional assembly language used for instruction in my computer architecture course.
+This file dtermines if a given input (1 - 40) results in the same value as four times that input. The equation is specified in the file. 
