@@ -1,2 +1,2 @@
 # assembly
-Fictional assembly language used for instruction in my computer architecture course.
+limit.s approximates the value of e using the limit method until a satisfactory degree accuracy.
